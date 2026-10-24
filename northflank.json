@@ -1,0 +1,140 @@
+{
+  "apiVersion": "v1.2",
+  "name": "Bermuda Portal",
+  "description": "BERMUDA PORTAL Institutional Stealth Gateway (Northflank + Cloudflare Edition)",
+  "options": {
+    "autorun": true
+  },
+  "arguments": {
+    "PROJECT_NAME": "bermuda-portal",
+    "PROJECT_REGION": "europe-west-frankfurt",
+    "SERVICE_NAME": "bermuda-portal",
+    "SERVICE_PLAN": "nf-compute-20",
+    "SERVICE_INSTANCES": 1,
+    "REPOSITORY_URL": "https://github.com/Bermuda1998/bermuda-portal",
+    "REPOSITORY_BRANCH": "main",
+    "CLOUDFLARE_API_TOKEN": "",
+    "NORTHFLANK_API_TOKEN": "",
+    "CUSTOM_DOMAIN": ""
+  },
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "steps": [
+        {
+          "kind": "Project",
+          "ref": "project",
+          "spec": {
+            "name": "${args.PROJECT_NAME}",
+            "region": "${args.PROJECT_REGION}",
+            "description": "BERMUDA PORTAL Edge Gateway Infrastructure"
+          }
+        },
+        {
+          "kind": "CombinedService",
+          "ref": "gateway",
+          "spec": {
+            "projectId": "${refs.project.id}",
+            "name": "${args.SERVICE_NAME}",
+            "billing": {
+              "deploymentPlan": "${args.SERVICE_PLAN}"
+            },
+            "vcsData": {
+              "projectUrl": "${args.REPOSITORY_URL}",
+              "projectType": "github",
+              "projectBranch": "${args.REPOSITORY_BRANCH}"
+            },
+            "buildSettings": {
+              "dockerfile": {
+                "buildEngine": "buildkit",
+                "dockerWorkDir": "/",
+                "dockerFilePath": "/Dockerfile",
+                "buildkit": {
+                  "useCache": true,
+                  "cacheStorageSize": 16384
+                }
+              }
+            },
+            "buildConfiguration": {
+              "pathIgnoreRules": [
+                "README.md",
+                "index.html",
+                ".env.example"
+              ],
+              "isAllowList": false,
+              "ciIgnoreFlags": [
+                "[skip ci]",
+                "[ci skip]",
+                "[no ci]",
+                "[skip nf]",
+                "[nf skip]",
+                "[northflank skip]",
+                "[skip northflank]"
+              ],
+              "ignoreEmptyCommits": true
+            },
+            "deployment": {
+              "instances": "${args.SERVICE_INSTANCES}",
+              "storage": {
+                "ephemeralStorage": {
+                  "storageSize": 1024
+                },
+                "shmSize": 64
+              }
+            },
+            "ports": [
+              {
+                "name": "http",
+                "internalPort": 8080,
+                "public": true,
+                "protocol": "HTTP"
+              }
+            ],
+            "healthChecks": [
+              {
+                "protocol": "HTTP",
+                "type": "readinessProbe",
+                "path": "/.well-known/hc-5b1e7c",
+                "port": 8080,
+                "initialDelaySeconds": 10,
+                "periodSeconds": 15,
+                "timeoutSeconds": 5,
+                "failureThreshold": 3,
+                "successThreshold": 1
+              },
+              {
+                "protocol": "HTTP",
+                "type": "livenessProbe",
+                "path": "/.well-known/hc-5b1e7c",
+                "port": 8080,
+                "initialDelaySeconds": 20,
+                "periodSeconds": 30,
+                "timeoutSeconds": 5,
+                "failureThreshold": 3,
+                "successThreshold": 1
+              }
+            ],
+            "runtimeEnvironment": {
+              "PORT": "8080",
+              "TZ": "UTC",
+              "GOGC": "100",
+              "GODEBUG": "madvdontneed=1",
+              "BERMUDA_PATH_XH": "/api/v1/sync",
+              "BERMUDA_PATH_WS": "/api/v1/live",
+              "BERMUDA_PATH_TR": "/api/v1/gateway",
+              "BERMUDA_HEALTH_PATH": "/.well-known/hc-5b1e7c",
+              "BERMUDA_BACKEND_XH": "127.0.0.1:18443",
+              "BERMUDA_BACKEND_WS": "127.0.0.1:18444",
+              "BERMUDA_BACKEND_TR": "127.0.0.1:18445",
+              "BERMUDA_REGION": "${args.PROJECT_REGION}",
+              "CLOUDFLARE_API_TOKEN": "${args.CLOUDFLARE_API_TOKEN}",
+              "NORTHFLANK_API_TOKEN": "${args.NORTHFLANK_API_TOKEN}",
+              "CUSTOM_DOMAIN": "${args.CUSTOM_DOMAIN}"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
